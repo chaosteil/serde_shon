@@ -261,20 +261,34 @@ impl<'de, 'a> VariantAccess<'de> for Enum<'a> {
 mod test {
     use std::collections::HashMap;
 
+    use serde::Serialize;
+
+    use crate::ser;
+
     use super::*;
+
+    #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+    struct Test {
+        int: u32,
+        int1: Option<u32>,
+        int2: Option<u32>,
+        int3: Option<u32>,
+        data: bool,
+        seq: Vec<String>,
+        map: HashMap<String, i32>,
+        e: E,
+    }
+
+    #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+    enum E {
+        Unit,
+        Newtype(u32),
+        Tuple(u32, u32),
+        Struct { a: u32 },
+    }
 
     #[test]
     fn deserialize() {
-        #[derive(Debug, Deserialize, PartialEq, Eq)]
-        struct Test {
-            int: u32,
-            int1: Option<u32>,
-            int2: Option<u32>,
-            int3: Option<u32>,
-            data: bool,
-            seq: Vec<String>,
-            map: HashMap<String, i32>,
-        }
         let v: Vec<&str> = vec![
             "[",
             "--int",
@@ -299,6 +313,8 @@ mod test {
             "--three",
             "4",
             "]",
+            "--e",
+            "Unit",
             "]",
         ];
         let v = v.into_iter().map(String::from);
@@ -316,7 +332,8 @@ mod test {
                     "general".to_string(),
                     "kenobi".to_string()
                 ],
-                map: HashMap::from([("one".to_string(), 2), ("three".to_string(), 4)])
+                map: HashMap::from([("one".to_string(), 2), ("three".to_string(), 4)]),
+                e: E::Unit,
             }
         );
     }
@@ -368,14 +385,6 @@ mod test {
 
     #[test]
     fn deserialize_enum_variants() {
-        #[derive(Debug, Deserialize, PartialEq, Eq)]
-        enum E {
-            Unit,
-            Newtype(u32),
-            Tuple(u32, u32),
-            Struct { a: u32 },
-        }
-
         let expected = E::Unit;
         assert_eq!(
             from_iter::<E, _>(vec!["Unit"].into_iter()).unwrap(),
@@ -400,5 +409,33 @@ mod test {
                 .unwrap(),
             expected
         );
+    }
+
+    #[test]
+    fn ser_then_de() {
+        let initial = Test {
+            int: 123,
+            int1: Some(456),
+            int2: None,
+            int3: None,
+            data: true,
+            seq: vec![
+                "'hello there'".to_string(),
+                "general".to_string(),
+                "kenobi".to_string(),
+            ],
+            map: HashMap::from([("one".to_string(), 2), ("three".to_string(), 4)]),
+            e: E::Newtype(3),
+        };
+        let mut out = ser::to_params(&initial).unwrap();
+        // shell escapes with regular quotes are weird, so we have to emplace that single quote
+        // back. TODO: output easily reingestible data
+        let pos = out
+            .iter()
+            .position(|i| i == "''\\''hello there'\\'''")
+            .unwrap();
+        out[pos] = "'hello there'".to_string();
+        let output = from_args(out.into_iter()).unwrap();
+        assert_eq!(initial, output);
     }
 }
