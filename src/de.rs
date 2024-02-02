@@ -13,13 +13,15 @@ pub struct Deserializer {
     empty: bool,
 }
 
-// to be used with env::args()
+/// to be used with `env::args()` to get command line parameters parsed.
+/// This automatically skips the binary from the first position of the
+/// args, so can be used directly as-is.
 pub fn from_args<'a, T, I>(iter: I) -> Result<T>
 where
     I: Iterator<Item = String>,
     T: Deserialize<'a>,
 {
-    let mut deserializer = Deserializer::from_args(iter);
+    let mut deserializer = Deserializer::from_args(iter.skip(1));
     let t = T::deserialize(&mut deserializer)?;
     if deserializer.args.is_empty() {
         Ok(t)
@@ -74,6 +76,9 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer {
         V: Visitor<'de>,
     {
         let mut s = self;
+        if s.args.is_empty() {
+            return visitor.visit_none();
+        }
         match s.args.pop().unwrap().as_str() {
             "-t" => visitor.visit_bool(true),
             "-f" => visitor.visit_bool(false),
@@ -269,6 +274,7 @@ mod test {
 
     #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
     struct Test {
+        str: String,
         int: u32,
         int1: Option<u32>,
         int2: Option<u32>,
@@ -290,7 +296,10 @@ mod test {
     #[test]
     fn deserialize() {
         let v: Vec<&str> = vec![
+            "./binary",
             "[",
+            "--str",
+            "data",
             "--int",
             "123",
             "--int1",
@@ -322,6 +331,7 @@ mod test {
         assert_eq!(
             t,
             Test {
+                str: "data".to_string(),
                 int: 123,
                 int1: Some(456),
                 int2: None,
@@ -414,6 +424,7 @@ mod test {
     #[test]
     fn ser_then_de() {
         let initial = Test {
+            str: "data".to_string(),
             int: 123,
             int1: Some(456),
             int2: None,
@@ -435,6 +446,7 @@ mod test {
             .position(|i| i == "''\\''hello there'\\'''")
             .unwrap();
         out[pos] = "'hello there'".to_string();
+        out.insert(0, "./binary".to_string());
         let output = from_args(out.into_iter()).unwrap();
         assert_eq!(initial, output);
     }
