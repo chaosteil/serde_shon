@@ -8,6 +8,38 @@ the format is based on the description present in [shon-go](https://github.com/a
 
 This library is intended to be used with [Serde](https://serde.rs/).
 
+## SHON?
+
+SHON (pronounced 'shawn') is short for **Sh**ell **O**bject **N**otation.
+It is a notation
+for expressing complex objects at the command line.
+Because it is intended to be used on the command line,
+it aims to reduce extraneous commas and brackets.
+
+All JSON objects can be expressed via SHON,
+typically in a format that is easier to specify on the command line.
+
+| JSON                 | SHON                |
+|----------------------|---------------------|
+| `{"hello": "World"}` | `[ --hello World ]` |
+| `["beep", "boop"]`   | `[ beep boop ]`     |
+| `[1, 2, 3]`          | `[ 1 2 3 ]`         |
+| `[]`                 | `[ ]` or `[]`       |
+| `{"a": 10, b: 20}`   | `[ --a 10 --b 20 ]` |
+| `{}`                 | `[--]`              |
+| `1`                  | `1`                 |
+| `-1`                 | `-1`                |
+| `1e3`                | `1e3`               |
+| `"hello"`            | `hello`             |
+| `"hello world"`      | `'hello world'`     |
+| `"10"`               | `-- 10`             |
+| `"-10"`              | `-- -10`            |
+| `"-"`                | `-- -`              |
+| `"--"`               | `-- --`             |
+| `true`               | `-t`                |
+| `false`              | `-f`                |
+| `null`               | `-n`                |
+
 ## Installation
 
 Include the library as part of the dependencies in `Cargo.toml`:
@@ -33,6 +65,15 @@ fn main() {
     let d: Data = from_args(env::args()).unwrap();
     dbg!(d.field);
 }
+```
+
+And you will be able to call your application as such:
+
+```bash
+$ ./binary [ --field hello ]
+d.field = Some(
+    "hello",
+)
 ```
 
 ## Features
